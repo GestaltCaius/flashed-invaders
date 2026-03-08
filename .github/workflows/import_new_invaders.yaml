@@ -1,0 +1,84 @@
+name: import new invaders from text files
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+        - 'inputs/*.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Recommended with tj-actions/changed-files
+
+    - name: Get changed files
+      id: changed-files
+      uses: tj-actions/changed-files@22103cc46bda19c2b464ffe86db46df6922fd323 # v47.0.5
+      with:
+        files: inputs/*.txt
+
+    - name: Convert to JSON and clean inputs
+      env:
+        CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }} 
+      run: |
+        # Ensure the destination directory exists
+        mkdir -p changelog
+        
+        # Get the date once in YYYY-MM-DD_HH-MM format
+        current_date=$(date +"%F_%H-%M")
+        
+        for file in ${CHANGED_FILES}; do
+          # 1. Extract naming
+          base_name=$(basename "$file")
+          name_no_ext="${base_name%.*}"
+          json_file="changelog/${current_date}_${name_no_ext}.json"
+          
+          # 2. Convert text to JSON array (ignoring empty/whitespace lines)
+          jq -Rn '[inputs | select(test("\\S"))]' "$file" > "$json_file"
+          echo "Generated file: $json_file"
+          
+          # 3. Merge into the main database file
+          jq -s 'add | unique' flashed-invaders.json "$json_file" > tmp.json
+          mv tmp.json flashed-invaders.json
+
+          # 4. Remove the processed text file from Git
+          git rm "$file"
+
+        done
+
+        # 5. Check and print the total length
+        TOTAL_COUNT=$(jq 'length' flashed-invaders.json)
+        echo "🎉 Success! Total unique invaders currently in database: $TOTAL_COUNT"
+
+        # 6. Generate the Shields.io dynamic badge JSON
+        cat <<EOF > badge.json
+        {
+          "schemaVersion": 1,
+          "label": "Flashed Invaders",
+          "message": "${TOTAL_COUNT}",
+          "color": "blue"
+        }
+        EOF
+
+    - name: Commit and push changes
+      run: |
+        # Setup GitHub Actions bot identity
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        
+        # Stage the new JSON files and the updated main database
+        git add changelog/ flashed-invaders.json badge.json
+        
+        # Commit (the '|| echo' prevents the workflow from crashing if there's nothing to commit)
+        git commit -m "chore: process input files and update flashed-invaders JSON file [skip ci]" || echo "No changes to commit"
+        
+        # Push back to the repository
+        git push
