@@ -40,7 +40,7 @@ jobs:
           json_file="changelog/${current_date}_${name_no_ext}.json"
           
           # Convert text to JSON array with jq
-          cat "$file" | jq -Rn '[inputs]' > "$json_file"
+          jq -Rn '[inputs | select(test("\\S"))]' "$file" > "$json_file"
           
           # Log the result in GitHub Actions
           echo "Generated file: $json_file"
