@@ -1,0 +1,1 @@
+![Flashed Invaders Count](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/GestaltCaius/flashed-invaders/main/badge.json)
