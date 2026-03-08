@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  import-invaders:
     runs-on: ubuntu-latest
 
     steps:
